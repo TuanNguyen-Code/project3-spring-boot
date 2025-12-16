@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Quản trị Hệ thống (Nmit)</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background-color: #f8f9fa; }
+        .nav-tabs .nav-link.active {
+            background-color: #d70018 !important;
+            color: white !important;
+            border-color: #d70018;
+        }
+        .nav-tabs .nav-link { color: #555; font-weight: bold; }
+        .role-badge-ADMIN { background-color: #dc3545; color: white; padding: 5px 10px; border-radius: 20px; font-size: 0.8rem; }
+        .role-badge-USER { background-color: #0d6efd; color: white; padding: 5px 10px; border-radius: 20px; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+
+<script>
+        if (!localStorage.getItem('nmit_isLoggedIn') || localStorage.getItem('nmit_role') !== 'ADMIN') {
+            alert("Bạn không có quyền truy cập!");
+            window.location.href = '/nmitlogin';
+        }
+    </script>
+
+<nav class="navbar navbar-dark bg-dark mb-4 shadow">
+    <div class="container">
+        <a class="navbar-brand fw-bold text-danger" href="/admin"><i class="fas fa-shield-alt"></i> NMIT ADMIN</a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-white">Xin chào, <b id="adminName">...</b></span>
+            <a href="/" class="btn btn-outline-light btn-sm">Trang chủ</a>
+            <button onclick="logout()" class="btn btn-danger btn-sm">Đăng xuất</button>
+        </div>
+    </div>
+</nav>
+
+<div class="container">
+    <ul class="nav nav-tabs mb-4" id="myTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="book-tab" data-bs-toggle="tab" data-bs-target="#book-pane" type="button">
+                <i class="fas fa-book"></i> QUẢN LÝ SÁCH
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="user-tab" data-bs-toggle="tab" data-bs-target="#user-pane" type="button" onclick="loadUsers()">
+                <i class="fas fa-users"></i> QUẢN LÝ NGƯỜI DÙNG
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="myTabContent">
+
+        <div class="tab-pane fade show active" id="book-pane" role="tabpanel">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card shadow border-0 sticky-top" style="top: 20px;">
+                        <div class="card-header bg-primary text-white"><i class="fas fa-plus"></i> Form Sách</div>
+                        <div class="card-body">
+                            <form id="bookForm">
+                                <input type="hidden" id="bookId">
+                                <div class="mb-3"><label>Tên sách</label><input type="text" class="form-control" id="title" required></div>
+                                <div class="mb-3"><label>Tác giả</label><input type="text" class="form-control" id="author" required></div>
+                                <div class="mb-3"><label>Thể loại</label><input type="text" class="form-control" id="category"></div>
+                                <div class="row mb-3">
+                                    <div class="col"><label>ISBN</label><input type="text" class="form-control" id="isbn"></div>
+                                    <div class="col"><label>Số lượng</label><input type="number" class="form-control" id="quantity" value="10"></div>
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100" id="saveBtn">Lưu Sách</button>
+                                <button type="button" class="btn btn-secondary w-100 mt-2" id="cancelBtn" onclick="resetForm()" style="display:none;">Hủy</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-8">
+                    <div class="card shadow border-0">
+                        <div class="card-header bg-white d-flex justify-content-between">
+                            <h5 class="text-primary fw-bold">Kho Sách</h5>
+                            <button class="btn btn-sm btn-success" onclick="loadBooks()">Làm mới</button>
+                        </div>
+                        <div class="card-body p-0">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light"><tr><th>ID</th><th>Sách</th><th>Kho</th><th class="text-end">Hành động</th></tr></thead>
+                                <tbody id="bookTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="user-pane" role="tabpanel">
+            <div class="card shadow border-0">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="text-danger fw-bold"><i class="fas fa-users-cog"></i> Danh sách Thành viên</h5>
+                    <button class="btn btn-sm btn-primary" onclick="loadUsers()"><i class="fas fa-sync"></i> Cập nhật</button>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-striped align-middle mb-0">
+                        <thead class="table-dark">
+                        <tr>
+                            <th>ID</th>
+                            <th>Tên đăng nhập</th>
+                            <th>Họ và tên</th>
+                            <th>Vai trò (Role)</th>
+                            <th class="text-end">Phân quyền / Xóa</th>
+                        </tr>
+                        </thead>
+                        <tbody id="userTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+        const API_BASE = 'http://localhost:8080/api/nmit';
+        document.getElementById('adminName').innerText = localStorage.getItem('nmit_user') || 'Admin';
+
+        // --- PHẦN 1: QUẢN LÝ SÁCH
+        async function loadBooks() {
+            const res = await fetch(API_BASE);
+            const books = await res.json();
+            let html = '';
+            books.forEach(b => {
+                html += `<tr>
+                    <td>${b.nmitId}</td>
+                    <td><b>${b.nmitTitle}</b><br><small>${b.nmitAuthor}</small></td>
+                    <td>${b.nmitAvailable}/${b.nmitQuantity}</td>
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-warning" onclick="editBook(${b.nmitId})"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteBook(${b.nmitId})"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>`;
+            });
+            document.getElementById('bookTableBody').innerHTML = html;
+        }
+
+        // --- PHẦN 2: QUẢN LÝ USER
+        // --- 1. CẬP NHẬT HÀM LOAD USERS (Để hiện nút cho chính mình) ---
+        async function loadUsers() {
+            try {
+                const res = await fetch(`${API_BASE}/users`);
+                const users = await res.json();
+
+                // Lấy ID của người đang đăng nhập từ LocalStorage
+                const currentUserId = parseInt(localStorage.getItem('nmit_userId'));
+                let html = '';
+
+                users.forEach(u => {
+                    // Logic: Chỉ ẩn nút với tài khoản 'admin' gốc (để tránh mất admin duy nhất)
+                    // Còn các admin khác vẫn có thể tự giáng chức mình.
+                    const isSuperAdmin = u.nmitUsername === 'admin';
+
+                    let roleBadge = u.nmitRole === 'ADMIN'
+                        ? `<span class="badge bg-danger">ADMIN</span>`
+                        : `<span class="badge bg-primary">USER</span>`;
+
+                    let actionButtons = '';
+
+                    if (isSuperAdmin) {
+                        actionButtons = '<span class="text-muted small fw-bold"><i class="fas fa-lock"></i> Super Admin</span>';
+                    } else {
+                        // Nút Đổi quyền
+                        if (u.nmitRole === 'USER') {
+                            actionButtons += `<button class="btn btn-sm btn-outline-danger me-2" onclick="changeRole(${u.nmitId}, 'ADMIN')">
+                                <i class="fas fa-arrow-up"></i> Lên Admin
+                            </button>`;
+                        } else {
+                            // Nếu là ADMIN -> Cho xuống USER
+                            // Thêm class warning nếu là chính mình để gây chú ý
+                            const btnClass = (u.nmitId === currentUserId) ? 'btn-warning fw-bold' : 'btn-outline-primary';
+                            const btnText = (u.nmitId === currentUserId) ? 'Tự giáng chức' : 'Xuống User';
+
+                            actionButtons += `<button class="btn btn-sm ${btnClass} me-2" onclick="changeRole(${u.nmitId}, 'USER')">
+                                <i class="fas fa-arrow-down"></i> ${btnText}
+                            </button>`;
+                        }
+
+                        // Nút Xóa (Không cho tự xóa mình)
+                        if (u.nmitId !== currentUserId) {
+                            actionButtons += `<button class="btn btn-sm btn-light text-danger" onclick="deleteUser(${u.nmitId})">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>`;
+                        }
+                    }
+
+                    // Tô màu nền vàng nhạt cho dòng của chính mình để dễ nhận biết
+                    const rowClass = (u.nmitId === currentUserId) ? 'table-warning' : '';
+
+                    html += `
+                        <tr class="${rowClass}">
+                            <td>${u.nmitId}</td>
+                            <td class="fw-bold">${u.nmitUsername} ${(u.nmitId === currentUserId) ? '(Bạn)' : ''}</td>
+                            <td>${u.nmitFullName}</td>
+                            <td>${roleBadge}</td>
+                            <td class="text-end">${actionButtons}</td>
+                        </tr>
+                    `;
+                });
+                document.getElementById('userTableBody').innerHTML = html;
+            } catch (e) { console.error(e); }
+        }
+
+        // --- 2. CẬP NHẬT HÀM ĐỔI QUYỀN (Logic tự đăng xuất) ---
+        async function changeRole(targetId, newRole) {
+            // Lấy ID người đang đăng nhập
+            const currentUserId = parseInt(localStorage.getItem('nmit_userId'));
+
+            // Kiểm tra xem có phải đang tự sửa mình không
+            const isSelf = (targetId === currentUserId);
+
+            let confirmMsg = `Bạn muốn đổi quyền người này thành ${newRole}?`;
+
+            // Nếu tự giáng chức, cảnh báo gắt hơn
+            if (isSelf && newRole === 'USER') {
+                confirmMsg = "CẢNH BÁO QUAN TRỌNG:\n\nBạn đang tự giáng chức chính mình xuống USER.\nNếu đồng ý, bạn sẽ mất quyền truy cập trang Admin và bị đăng xuất ngay lập tức.\n\nBạn có chắc chắn không?";
+            }
+
+            if(!confirm(confirmMsg)) return;
+
+            try {
+                const res = await fetch(`${API_BASE}/users/${targetId}/role?role=${newRole}`, { method: 'PUT' });
+
+                if(res.ok) {
+                    // LOGIC QUAN TRỌNG Ở ĐÂY:
+                    if (isSelf && newRole === 'USER') {
+                        alert("Bạn đã trở thành User thường. Hệ thống sẽ đăng xuất ngay bây giờ.");
+                        logout(); // Gọi hàm đăng xuất (xóa localStorage và về login)
+                    } else {
+                        alert("Cập nhật thành công!");
+                        loadUsers(); // Tải lại bảng nếu sửa người khác
+                    }
+                }
+                else {
+                    alert("Lỗi cập nhật!");
+                }
+            } catch(e) { alert("Lỗi kết nối!"); }
+        }
+
+        // Hàm xóa user
+        async function deleteUser(id) {
+            if(!confirm("CẢNH BÁO: Xóa người dùng này sẽ mất hết lịch sử mượn trả. Tiếp tục?")) return;
+            try {
+                const res = await fetch(`${API_BASE}/users/${id}`, { method: 'DELETE' });
+                if(res.ok) { alert("Đã xóa người dùng!"); loadUsers(); }
+                else alert("Không thể xóa (User đang có dữ liệu liên quan)!");
+            } catch(e) { alert("Lỗi kết nối!"); }
+        }
+
+        // CÁC HÀM TIỆN ÍCH KHÁC (Logout, Reset Form...) ---
+        function logout() {
+            localStorage.clear();
+            window.location.href = '/nmitlogin';
+        }
+
+        // Các hàm xử lý form sách: bookForm listener, editBook, resetForm, deleteBook) ...
+        document.getElementById('bookForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('bookId').value;
+            const data = {
+                nmitTitle: document.getElementById('title').value,
+                nmitAuthor: document.getElementById('author').value,
+                nmitCategory: document.getElementById('category').value,
+                nmitIsbn: document.getElementById('isbn').value,
+                nmitQuantity: parseInt(document.getElementById('quantity').value)
+            };
+            let method = id ? 'PUT' : 'POST';
+            let url = id ? `${API_BASE}/${id}` : API_BASE;
+
+            await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            resetForm(); loadBooks();
+        });
+
+        async function deleteBook(id) { if(confirm("Xóa sách?")) { await fetch(`${API_BASE}/${id}`, {method:'DELETE'}); loadBooks(); } }
+        async function editBook(id) {
+            const res = await fetch(`${API_BASE}/${id}`); const b = await res.json();
+            document.getElementById('bookId').value = b.nmitId;
+            document.getElementById('title').value = b.nmitTitle;
+            document.getElementById('author').value = b.nmitAuthor;
+            document.getElementById('category').value = b.nmitCategory;
+            document.getElementById('isbn').value = b.nmitIsbn;
+            document.getElementById('quantity').value = b.nmitQuantity;
+            document.getElementById('saveBtn').innerText = 'Cập nhật';
+            document.getElementById('cancelBtn').style.display = 'block';
+        }
+        function resetForm() {
+            document.getElementById('bookForm').reset(); document.getElementById('bookId').value='';
+            document.getElementById('saveBtn').innerText='Lưu Sách'; document.getElementById('cancelBtn').style.display='none';
+        }
+
+        // Chạy lần đầu
+        loadBooks();
+    </script>
+</body>
+</html>

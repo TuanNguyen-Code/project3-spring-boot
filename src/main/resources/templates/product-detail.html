@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Chi tiết sách</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <style>
+        .book-cover { width: 100%; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        .rating-stars { color: #ffc107; cursor: pointer; font-size: 1.5rem; }
+        .user-avatar { width: 40px; height: 40px; border-radius: 50%; background: #ddd; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #555; }
+    </style>
+</head>
+<body class="bg-light">
+
+<nav class="navbar navbar-dark bg-danger mb-4 shadow">
+  <div class="container">
+    <a class="navbar-brand fw-bold" href="/"><i class="fas fa-arrow-left"></i> Quay lại</a>
+    <span class="text-white">Chi tiết sản phẩm</span>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="card shadow-sm border-0 mb-4">
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-4">
+          <img id="bookImg" src="" class="book-cover" alt="Bìa sách">
+        </div>
+        <div class="col-md-8">
+          <h2 id="bookTitle" class="fw-bold mt-3 mt-md-0">...</h2>
+          <p class="text-muted"><i class="fas fa-user-edit"></i> Tác giả: <span id="bookAuthor">...</span></p>
+          <p class="text-muted"><i class="fas fa-tag"></i> Thể loại: <span id="bookCategory">...</span></p>
+          <h4 class="text-danger fw-bold my-3" id="bookStatus">Loading...</h4>
+
+          <div class="d-grid gap-2 col-md-6">
+            <button class="btn btn-danger btn-lg" onclick="borrowCurrentBook()">
+              <i class="fas fa-cart-plus"></i> MƯỢN NGAY
+            </button>
+          </div>
+
+          <div class="mt-4 p-3 bg-white rounded border">
+            <h5><i class="fas fa-info-circle"></i> Giới thiệu</h5>
+            <p>Cuốn sách này hiện đang có sẵn tại thư viện Nmit. Hãy mượn ngay để khám phá những kiến thức bổ ích!</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm border-0 mb-5">
+    <div class="card-header bg-white">
+      <h5 class="fw-bold mb-0"><i class="fas fa-star text-warning"></i> Đánh giá từ độc giả</h5>
+    </div>
+    <div class="card-body">
+      <div class="mb-4 p-3 bg-light rounded">
+        <h6>Viết đánh giá của bạn:</h6>
+        <div class="mb-2 rating-stars" id="star-input">
+          <i class="far fa-star" data-val="1"></i>
+          <i class="far fa-star" data-val="2"></i>
+          <i class="far fa-star" data-val="3"></i>
+          <i class="far fa-star" data-val="4"></i>
+          <i class="far fa-star" data-val="5"></i>
+        </div>
+        <textarea id="commentContent" class="form-control mb-2" rows="3" placeholder="Chia sẻ cảm nghĩ của bạn về cuốn sách này..."></textarea>
+        <button class="btn btn-primary btn-sm" onclick="submitReview()">Gửi đánh giá</button>
+      </div>
+
+      <div id="reviewList">
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+        const API_BASE = 'http://localhost:8080/api/nmit';
+        const urlParams = new URLSearchParams(window.location.search);
+        const bookId = urlParams.get('id');
+        let selectedRating = 0;
+
+        if (!bookId) {
+            alert("Không tìm thấy sách!");
+            window.location.href = '/';
+        }
+
+        // --- HÀM KIỂM TRA ĐĂNG NHẬP (Dùng chung) ---
+        function checkAuth() {
+            const userId = localStorage.getItem('nmit_userId');
+            const isLogged = localStorage.getItem('nmit_isLoggedIn');
+
+            if (!userId || !isLogged) {
+                alert("Bạn cần đăng nhập để thực hiện chức năng này!");
+                // Lưu lại trang hiện tại để login xong quay lại (Tính năng nâng cao UX)
+                // window.location.href = `/nmitlogin?redirect=/product-detail?id=${bookId}`;
+                window.location.href = '/nmitlogin';
+                return false;
+            }
+            return userId; // Trả về ID nếu đã đăng nhập
+        }
+
+        // 1. Tải thông tin sách
+        async function loadBookDetail() {
+            try {
+                const res = await fetch(`${API_BASE}/${bookId}`);
+                const book = await res.json();
+
+                document.getElementById('bookTitle').innerText = book.nmitTitle;
+                document.getElementById('bookAuthor').innerText = book.nmitAuthor;
+                document.getElementById('bookCategory').innerText = book.nmitCategory || 'Tổng hợp';
+                document.getElementById('bookImg').src = `https://placehold.co/400x600/5F9EA0/white?text=${book.nmitTitle.substring(0,10)}`;
+
+                const statusDiv = document.getElementById('bookStatus');
+                if (book.nmitAvailable > 0) {
+                    statusDiv.innerHTML = `Còn ${book.nmitAvailable} / ${book.nmitQuantity} cuốn <span class="badge bg-success fs-6">Sẵn sàng</span>`;
+                } else {
+                    statusDiv.innerHTML = `Hết hàng <span class="badge bg-secondary fs-6">Chờ nhập kho</span>`;
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        // 2. Tải đánh giá
+        async function loadReviews() {
+            try {
+                const res = await fetch(`${API_BASE}/${bookId}/reviews`);
+                const reviews = await res.json();
+                let html = '';
+
+                if (reviews.length === 0) {
+                    html = '<p class="text-muted text-center">Chưa có đánh giá nào.</p>';
+                } else {
+                    reviews.forEach(r => {
+                        let stars = '';
+                        for (let i = 1; i <= 5; i++) {
+                            stars += i <= r.nmitRating ? '<i class="fas fa-star text-warning"></i>' : '<i class="far fa-star text-muted"></i>';
+                        }
+                        const firstChar = r.nmitUser.nmitFullName.charAt(0).toUpperCase();
+                        html += `
+                            <div class="d-flex mb-3 border-bottom pb-3">
+                                <div class="user-avatar me-3">${firstChar}</div>
+                                <div>
+                                    <div class="fw-bold">${r.nmitUser.nmitFullName} <small class="text-muted ms-2" style="font-size:12px">${r.nmitCreatedAt.split('T')[0]}</small></div>
+                                    <div class="mb-1">${stars}</div>
+                                    <div class="text-dark">${r.nmitComment}</div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+                document.getElementById('reviewList').innerHTML = html;
+            } catch (e) { console.error(e); }
+        }
+
+        // 3. Xử lý chọn sao
+        document.querySelectorAll('#star-input i').forEach(star => {
+            star.addEventListener('click', function() {
+                selectedRating = this.getAttribute('data-val');
+                document.querySelectorAll('#star-input i').forEach(s => {
+                    if (s.getAttribute('data-val') <= selectedRating) {
+                        s.classList.remove('far'); s.classList.add('fas');
+                    } else {
+                        s.classList.remove('fas'); s.classList.add('far');
+                    }
+                });
+            });
+        });
+
+        // 4. GỬI ĐÁNH GIÁ (ĐÃ VÁ LỖI BẢO MẬT)
+        async function submitReview() {
+            // Kiểm tra đăng nhập
+            const userId = checkAuth();
+            if (!userId) return; // Dừng nếu chưa login
+
+            if (selectedRating == 0) {
+                alert("Vui lòng chọn số sao!");
+                return;
+            }
+
+            const comment = document.getElementById('commentContent').value;
+
+            try {
+                const res = await fetch(`${API_BASE}/${bookId}/reviews?userId=${userId}&rating=${selectedRating}`, {
+                    method: 'POST',
+                    body: comment
+                });
+
+                if (res.ok) {
+                    alert("Đánh giá thành công!");
+                    document.getElementById('commentContent').value = '';
+                    loadReviews();
+                } else {
+                    alert("Lỗi khi gửi đánh giá!");
+                }
+            } catch (e) { alert("Lỗi kết nối!"); }
+        }
+
+        // 5. MƯỢN SÁCH (ĐÃ VÁ LỖI BẢO MẬT)
+        async function borrowCurrentBook() {
+            // Kiểm tra đăng nhập
+            const userId = checkAuth();
+            if (!userId) return; // Dừng nếu chưa login
+
+            if(!confirm("Xác nhận mượn cuốn sách này?")) return;
+
+            try {
+                // Gọi API backend (Backend cũng đã có check userId exists nên rất an toàn)
+                const res = await fetch(`${API_BASE}/${bookId}/borrow-user?userId=${userId}`, { method: 'POST' });
+                if (res.ok) {
+                    alert("Mượn thành công! Vui lòng kiểm tra trong Tủ sách.");
+                    loadBookDetail(); // Cập nhật số lượng
+                } else {
+                    const msg = await res.text();
+                    alert("Lỗi: " + msg);
+                }
+            } catch (e) { alert("Lỗi kết nối!"); }
+        }
+
+        loadBookDetail();
+        loadReviews();
+    </script>
+</body>
+</html>
